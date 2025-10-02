@@ -158,7 +158,9 @@ KV = r'''
 
 class NmapRunner(threading.Thread):
     """
-    Esegue nmap (o sudo nmap) e streamma stdout alla UI.
+    Esegue nmap (o sudo nmap) e:
+      - raccoglie SOLO l'XML da stdout (con -oX -)
+      - inoltra stderr (prompt/progress/errori) a on_output_line in parallelo
     Se stdin_input è valorizzato, viene scritto su stdin (es. password per sudo -S).
     """
 
@@ -174,17 +176,19 @@ class NmapRunner(threading.Thread):
 
     def run(self):
         try:
-            cmd = self.cmd_args
-            # assicurati di avere XML su stdout a meno che l'utente non abbia già messo -oX
+            # Assicura '-oX -' se non già presente (per ricevere XML su stdout)
+            cmd = list(self.cmd_args)
             if "-oX" not in cmd:
-                cmd = cmd + ['-oX', '-']
+                cmd += ['-oX', '-']
+
+            # stdout e stderr SEPARATI
             self.proc = subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
+                stderr=subprocess.PIPE,
                 stdin=subprocess.PIPE,
                 text=True,
-                bufsize=1
+                bufsize=1  # line-buffered
             )
         except Exception as e:
             self.on_done(error=str(e), xml_output=None)
@@ -192,8 +196,23 @@ class NmapRunner(threading.Thread):
 
         out_lines = []
         start = time.time()
+
+        # Thread drain per stderr → inoltra progress/prompt a on_output_line
+        def _drain_stderr():
+            try:
+                for line in self.proc.stderr:
+                    if self.on_output_line and line:
+                        self.on_output_line(line.rstrip("\n"))
+                    if self._aborted:
+                        break
+            except Exception:
+                pass  # ignora problemi di lettura stderr
+
+        t_err = threading.Thread(target=_drain_stderr, daemon=True)
+        t_err.start()
+
         try:
-            # inietta eventuale password e chiudi stdin
+            # Inietta password (se necessario) e chiudi stdin
             if self.stdin_input is not None:
                 try:
                     self.proc.stdin.write(self.stdin_input + "\n")
@@ -204,37 +223,60 @@ class NmapRunner(threading.Thread):
                     except Exception:
                         pass
 
+            # Legge SOLO stdout (XML) riga per riga
             for line in self.proc.stdout:
                 out_lines.append(line)
-                if self.on_output_line:
-                    self.on_output_line(line)
                 if self._aborted:
                     try:
                         self.proc.kill()
                     except Exception:
                         pass
                     break
+
                 if self.timeout and (time.time() - start) > self.timeout:
                     try:
                         self.proc.kill()
                     except Exception:
                         pass
                     break
+
             rc = self.proc.wait()
         except Exception as e:
             self.on_done(error=str(e), xml_output=None)
             return
+        finally:
+            # assicura la chiusura dei pipe
+            try:
+                if self.proc.stdout:
+                    self.proc.stdout.close()
+            except Exception:
+                pass
+            try:
+                if self.proc.stderr:
+                    self.proc.stderr.close()
+            except Exception:
+                pass
+            # attendi il drain di stderr
+            try:
+                t_err.join(timeout=1.0)
+            except Exception:
+                pass
 
         xml_output = ''.join(out_lines)
+
         if self._aborted:
             self.on_done(error='aborted', xml_output=None)
+            return
+
+        # Validazione minima dell'XML
+        if '<nmaprun' in xml_output:
+            self.on_done(error=None, xml_output=xml_output)
         else:
-            if '<nmaprun' in xml_output:
-                self.on_done(error=None, xml_output=xml_output)
-            else:
-                err = xml_output.strip()[:400]
-                self.on_done(error=f'no xml output; raw output: {
-                             err}', xml_output=None)
+            # Se XML mancante, inoltra un estratto utile di stdout/stderr già mostrato come status
+            err_preview = (xml_output.strip()[
+                           :400]) if xml_output else 'empty stdout'
+            self.on_done(error=f'no xml output; raw stdout: {
+                         err_preview}', xml_output=None)
 
     def abort(self):
         self._aborted = True
@@ -469,7 +511,23 @@ class MainUI(BoxLayout):
                     '-T4', '--top-ports', '200', '-sV', target]
 
         elif preset_name == 'udp_quick':
+            # UDP richiede privilegi (raw sockets) su Unix
             base = ['-sU', '--top-ports', '100', '-T3', target]
+
+            # Se non sei root ma sei sudoer → usa lo stesso percorso con sudo del SYN
+            if not self.is_root:
+                if self.syn_capable:  # nel nostro codice: root OR sudoer; qui siamo nel ramo not root -> sudoer
+                    self.set_status(
+                        "UDP scan richiede privilegi: verifica sudo...")
+                    # gestisce cache sudo o popup password
+                    self.run_nmap_with_sudo(base)
+                    return
+                else:
+                    self.set_status(
+                        "UDP scan richiede privilegi: utente non sudoer.", error=True)
+                    return
+            # Sei root -> esegui direttamente
+            # (inietteremo il timing se non presente, come per gli altri preset)
 
         elif preset_name == 'vuln':
             if user_wants_syn and self.syn_capable and not self.is_root:

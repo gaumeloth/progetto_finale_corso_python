@@ -1,0 +1,130 @@
+<MainUI>:
+    orientation: 'vertical'
+    padding: 8
+    spacing: 8
+
+    BoxLayout:
+        size_hint_y: None
+        height: '40dp'
+        Label:
+            text: 'Nmap GUI — Preset scans'
+            bold: True
+
+    BoxLayout:
+        size_hint_y: None
+        height: '120dp'
+        spacing: 8
+
+        BoxLayout:
+            orientation: 'vertical'
+            size_hint_x: .6
+            spacing: 6
+
+            BoxLayout:
+                size_hint_y: None
+                height: '36dp'
+                Label:
+                    text: 'Target (IP / CIDR / host):'
+                TextInput:
+                    id: target
+                    text: root.last_target
+                    multiline: False
+
+            BoxLayout:
+                size_hint_y: None
+                height: '36dp'
+                Label:
+                    text: 'Porte (es. 22,80 o leave blank):'
+                TextInput:
+                    id: ports
+                    multiline: False
+
+            BoxLayout:
+                size_hint_y: None
+                height: '36dp'
+                Label:
+                    text: 'Timing (T0..T5):'
+                Spinner:
+                    id: timing
+                    text: 'T4'
+                    values: ['T0','T1','T2','T3','T4','T5']
+            BoxLayout:
+                size_hint_y: None
+                height: '36dp'
+                CheckBox:
+                    id: use_syn
+                    active: root.defaults_use_syn
+                Label:
+                    text: 'Usa SYN scan (richiede sudo / capability)'
+
+        BoxLayout:
+            orientation: 'vertical'
+            spacing: 6
+
+            Label:
+                text: 'Presets'
+                size_hint_y: None
+                height: '24dp'
+
+            GridLayout:
+                cols: 1
+                spacing: 6
+                Button:
+                    text: 'Host discovery (ping) -sn'
+                    on_release: root.start_preset('discovery')
+                Button:
+                    text: 'Fast SYN scan (top ports) -sS -F'
+                    on_release: root.start_preset('fast_syn')
+                Button:
+                    text: 'Top ports + version -sS --top-ports -sV'
+                    on_release: root.start_preset('top_version')
+                Button:
+                    text: 'UDP quick (top ports) -sU --top-ports'
+                    on_release: root.start_preset('udp_quick')
+                Button:
+                    text: 'Vulnerability scan (NSE --script=vuln)'
+                    on_release: root.start_preset('vuln')
+
+    BoxLayout:
+        size_hint_y: None
+        height: '40dp'
+        spacing: 8
+        Button:
+            text: 'Start custom scan'
+            on_release: root.start_custom_scan()
+        Button:
+            text: 'Abort scan'
+            on_release: root.abort_scan()
+        Button:
+            text: 'Save last XML'
+            on_release: root.save_last_xml()
+
+    Label:
+        text: 'Status: ' + root.status_text
+        size_hint_y: None
+        height: '24dp'
+
+    BoxLayout:
+        size_hint_y: None
+        height: '24dp'
+        Label:
+            text: 'Results (hosts)'
+    ScrollView:
+        GridLayout:
+            id: result_grid
+            cols: 1
+            size_hint_y: None
+            height: self.minimum_height
+            row_default_height: '28dp'
+            row_force_default: True
+
+    BoxLayout:
+        size_hint_y: None
+        height: '28dp'
+        spacing: 8
+        Button:
+            text: 'Export CSV (ports)'
+            on_release: root.export_csv()
+        Button:
+            text: 'Open scans folder'
+            on_release: root.open_scans_folder()
