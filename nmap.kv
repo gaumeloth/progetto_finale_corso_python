@@ -1,4 +1,6 @@
 <MainUI>:
+    # collega ObjectProperty Python all'id KV
+    result_grid: result_grid
     orientation: 'vertical'
     padding: 8
     spacing: 8
@@ -7,12 +9,12 @@
         size_hint_y: None
         height: '40dp'
         Label:
-            text: 'Nmap GUI — Preset scans'
-            bold: True
+            markup: True
+            text: '[b]Nmap GUI — Preset scans[/b]'
 
     BoxLayout:
         size_hint_y: None
-        height: '120dp'
+        height: '156dp'
         spacing: 8
 
         BoxLayout:
@@ -34,7 +36,7 @@
                 size_hint_y: None
                 height: '36dp'
                 Label:
-                    text: 'Porte (es. 22,80 o leave blank):'
+                    text: 'Porte (es. 22,80-90 oppure T:80,U:53):'
                 TextInput:
                     id: ports
                     multiline: False
@@ -48,6 +50,17 @@
                     id: timing
                     text: 'T4'
                     values: ['T0','T1','T2','T3','T4','T5']
+
+            BoxLayout:
+                size_hint_y: None
+                height: '36dp'
+                Label:
+                    text: 'Stats every:'
+                Spinner:
+                    id: stats_every
+                    text: '5s'
+                    values: ['2s','5s','10s','30s','60s']
+
             BoxLayout:
                 size_hint_y: None
                 height: '36dp'
@@ -55,7 +68,7 @@
                     id: use_syn
                     active: root.defaults_use_syn
                 Label:
-                    text: 'Usa SYN scan (richiede sudo / capability)'
+                    text: 'Usa SYN scan nei preset (richiede sudo/capability)'
 
         BoxLayout:
             orientation: 'vertical'
@@ -85,6 +98,155 @@
                     text: 'Vulnerability scan (NSE --script=vuln)'
                     on_release: root.start_preset('vuln')
 
+    # --- CUSTOM avanzata ---
+    Accordion:
+        size_hint_y: None
+        height: '230dp'
+        AccordionItem:
+            title: 'Opzioni avanzate custom scan'
+            GridLayout:
+                cols: 4
+                padding: 6
+                spacing: 6
+
+                # riga 1
+                Label:
+                    text: 'Tipi di scan'
+                BoxLayout:
+                    spacing: 6
+                    CheckBox:
+                        id: adv_tcp_connect
+                        active: True
+                    Label:
+                        text: 'TCP connect (-sT)'
+                    CheckBox:
+                        id: adv_syn
+                        active: False
+                    Label:
+                        text: 'SYN (-sS)'
+                    CheckBox:
+                        id: adv_udp
+                        active: False
+                    Label:
+                        text: 'UDP (-sU)'
+
+                # riga 2
+                Label:
+                    text: 'Top ports (se -p vuoto)'
+                TextInput:
+                    id: adv_topports
+                    multiline: False
+                    hint_text: 'es. 200'
+                Label:
+                    text: 'Service detection'
+                BoxLayout:
+                    spacing: 6
+                    CheckBox:
+                        id: adv_sV
+                        active: True
+                    Label:
+                        text: '-sV'
+                    Label:
+                        text: 'Intensity (0-9)'
+                    TextInput:
+                        id: adv_version_intensity
+                        multiline: False
+                        hint_text: 'es. 7'
+
+                # riga 3
+                Label:
+                    text: 'OS detection'
+                BoxLayout:
+                    spacing: 6
+                    CheckBox:
+                        id: adv_os
+                        active: False
+                    Label:
+                        text: '-O'
+                Label:
+                    text: 'Verbosity'
+                Spinner:
+                    id: adv_verbose
+                    text: ''
+                    values: ['', '-v', '-vv']
+
+                # riga 4
+                Label:
+                    text: 'Skip discovery'
+                BoxLayout:
+                    spacing: 6
+                    CheckBox:
+                        id: adv_Pn
+                        active: False
+                    Label:
+                        text: '-Pn'
+                Label:
+                    text: 'DNS resolve'
+                BoxLayout:
+                    spacing: 6
+                    CheckBox:
+                        id: adv_no_dns
+                        active: False
+                    Label:
+                        text: '-n'
+                    CheckBox:
+                        id: adv_resolve_all
+                        active: False
+                    Label:
+                        text: '-R'
+
+                # riga 5
+                Label:
+                    text: 'min-rate'
+                TextInput:
+                    id: adv_min_rate
+                    multiline: False
+                    hint_text: 'es. 300'
+                Label:
+                    text: 'max-rate'
+                TextInput:
+                    id: adv_max_rate
+                    multiline: False
+                    hint_text: 'es. 1000'
+
+                # riga 6
+                Label:
+                    text: 'max-retries'
+                TextInput:
+                    id: adv_max_retries
+                    multiline: False
+                    hint_text: 'es. 1'
+                Label:
+                    text: 'host-timeout'
+                TextInput:
+                    id: adv_host_timeout
+                    multiline: False
+                    hint_text: 'es. 30m'
+
+                # riga 7
+                Label:
+                    text: 'NSE scripts'
+                TextInput:
+                    id: adv_scripts
+                    multiline: False
+                    hint_text: 'es. vuln,default or ssl-cert'
+                Label:
+                    text: 'NSE args'
+                TextInput:
+                    id: adv_script_args
+                    multiline: False
+                    hint_text: 'k=v,comma=sep'
+
+                # riga 8
+                Label:
+                    text: 'Output -oA prefix'
+                TextInput:
+                    id: adv_oA
+                    multiline: False
+                    hint_text: 'es. scans/out'
+                Widget:
+                Widget:
+
     BoxLayout:
         size_hint_y: None
         height: '40dp'
@@ -104,12 +266,37 @@
         size_hint_y: None
         height: '24dp'
 
+    # --- Barra di avanzamento + fase + ETC ---
+    BoxLayout:
+        size_hint_y: None
+        height: '28dp'
+        spacing: 6
+        ProgressBar:
+            id: pbar
+            max: 100
+            value: root.progress
+        Label:
+            text: root.phase_text
+            shorten: True
+        Label:
+            text: root.eta_text
+            size_hint_x: 0.35
+            halign: 'right'
+            valign: 'middle'
+            text_size: self.size
+
+    # --- Risultati (hosts) ---
     BoxLayout:
         size_hint_y: None
         height: '24dp'
         Label:
             text: 'Results (hosts)'
+
     ScrollView:
+        size_hint_y: None
+        height: '140dp'
+        do_scroll_x: False
+        do_scroll_y: True
         GridLayout:
             id: result_grid
             cols: 1
@@ -117,6 +304,22 @@
             height: self.minimum_height
             row_default_height: '28dp'
             row_force_default: True
+
+    # --- Log tail di stderr (scrollabile) ---
+    ScrollView:
+        size_hint_y: None
+        height: '100dp'
+        do_scroll_x: False
+        do_scroll_y: True
+        Label:
+            id: stderr_log
+            text: root.progress_log_text
+            font_size: '12sp'
+            size_hint_y: None
+            text_size: self.width, None
+            halign: 'left'
+            valign: 'top'
+            on_texture_size: self.height = self.texture_size[1]
 
     BoxLayout:
         size_hint_y: None
